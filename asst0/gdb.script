@@ -1,0 +1,31 @@
+Script started on Mon 10 Sep 2018 06:28:35 PM CDT
+[?1034hbash-4.2$ cd root/
+bash-4.2$ cs161-gdb ner[K[K[Kkernel
+[?1034hGNU gdb 6.6
+Copyright (C) 2006 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public License, and you are
+welcome to change it and/or distribute copies of it under certain conditions.
+Type "show copying" to see the conditions.
+There is absolutely no warranty for GDB.  Type "show warranty" for details.
+This GDB was configured as "--host=x86_64-unknown-linux-gnu --target=mips-elf"...
+/home/u2/yzw0060/.gdbinit:1: Error in sourced command file:
+Undefined command: "add-auto-load-safe-path".  Try "help".
+(gdb) target remote unix:.sockets\gdb[K[K[K[K/gdb
+Remote debugging using unix:.sockets/gdb
+__start () at ../../arch/mips/mips/start.S:24
+24	../../arch/mips/mips/start.S: No such file or directory.
+	in ../../arch/mips/mips/start.S
+Current language:  auto; currently asm
+(gdb) break menu
+Breakpoint 1 at 0x8001baac
+(gdb) c
+Continuing.
+
+Breakpoint 1, 0xffffffff8001baac in menu ()
+(gdb) de[K[Kdetach
+Ending remote debugging.
+(gdb) quiz[Kt
+bash-4.2$ exit
+exit
+
+Script done on Mon 10 Sep 2018 06:30:07 PM CDT

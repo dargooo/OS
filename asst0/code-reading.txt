@@ -1,0 +1,80 @@
+1. 29
+
+2. lamebus
+
+3. splhigh() sets spl to the highest value, disabling all interrupts;
+   spl0() sets spl to 0, enabling all interrupts.
+
+4. To make sure we get a 32-bit unsigned integer. 
+
+5. splx return an int value, which is a preservation of the old value of curspl (old state of interrupt).
+
+6. 15
+
+7. 100
+
+8. d_open
+   d_close
+   d_io
+   d_ioctl
+
+9. 32
+
+10. 15
+
+11. fs_sync
+    fs_getvolname
+    fs_getroot
+    fs_unmount
+
+12. void thread_sleep(const void *addr)
+
+13. 32 bits
+
+14. vop_open
+vop_close
+vop_reclaim
+vop_read
+vop_readlink
+vop_getdirentry
+vop_write
+vop_ioctl
+vop_stat
+vop_gettype
+vop_tryseek
+vop_fsync
+vop_mmap
+vop_truncate
+vop_namefile
+vop_creat
+vop_symlink
+vop_mkdir
+vop_link
+vop_remove
+vop_rmdir
+vop_rename
+vop_lookup
+vop_lookparent
+
+15. 1024
+
+16. 8
+
+17. ~/cs161/src/kern/include/kern$ vim unistd.h 
+	#define STDIN_FILENO  0      /* Standard input */
+
+18. Yes. Because the scheduler bootstrap will just create the run queue, and thread bootstrap will just initializ the first thread. 
+
+19. Zombies are threads/processes that have exited but not been fully deleted yet.
+
+20. 32
+
+21. "device:"    like "lhd0:"
+
+22. append a "raw" to the end of device name.   like "lhd0raw:"
+
+23. vn_countlock
+
+24. block device & character device
+
+

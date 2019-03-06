@@ -1,0 +1,417 @@
+diff --git a/kern/asst1/.catsem.c.swn b/kern/asst1/.catsem.c.swn
+new file mode 100644
+index 0000000..f72fd06
+Binary files /dev/null and b/kern/asst1/.catsem.c.swn differ
+diff --git a/kern/asst1/.catsem.c.swp b/kern/asst1/.catsem.c.swp
+new file mode 100644
+index 0000000..7ada348
+Binary files /dev/null and b/kern/asst1/.catsem.c.swp differ
+diff --git a/kern/asst1/catsem.c b/kern/asst1/catsem.c
+index dcb257b..7143373 100644
+--- a/kern/asst1/catsem.c
++++ b/kern/asst1/catsem.c
+@@ -18,7 +18,7 @@
+ #include <lib.h>
+ #include <test.h>
+ #include <thread.h>
+-
++#include <synch.h>
+ 
+ /*
+  * 
+@@ -44,6 +44,38 @@
+ 
+ #define NMICE 2
+ 
++//playaround
++#define MAXTIME 3
++//times to eat for each
++#define EATTIMES 3
++//define boolean type
++#define true 1
++#define false 0
++typedef char bool;
++
++/* variables declaration */
++static const char *cats[NCATS] = {"Cathy", "Carla", "Caroline", "Cassandra", "Cody", "Crystal"};
++static const char *mice[NMICE] = {"Micky", "Minnie"};
++//share
++volatile int cattime[NCATS];
++volatile int mousetime[NMICE];
++volatile bool all_dishes_available;
++volatile bool dish1_busy;
++volatile bool dish2_busy;
++struct semaphore *done;
++struct semaphore *mutex;
++struct semaphore *dish_mutex;
++struct semaphore *finish;
++//cats
++struct semaphore *cats_queue;
++volatile int cats_wait_count;
++volatile bool no_cat_eat;
++volatile int num_cats_done;
++//mice
++struct semaphore *mice_queue;
++volatile int mice_wait_count;
++volatile bool no_mouse_eat;
++volatile int num_mice_done;
+ 
+ /*
+  * 
+@@ -72,12 +104,95 @@ void
+ catsem(void * unusedpointer, 
+        unsigned long catnumber)
+ {
++	int i;
+         /*
+          * Avoid unused variable warnings.
+          */
+-
+         (void) unusedpointer;
+         (void) catnumber;
++	int mydish;
++	volatile bool first_cat_eat;
++	volatile bool another_cat_eat;
++
++	for (i = 0; i < EATTIMES; i++) {
++
++	first_cat_eat = false;
++        another_cat_eat = false;
++
++	//first cat no mouse
++	P(mutex);
++	if (all_dishes_available == true) {
++		all_dishes_available = false;
++		V(cats_queue);
++	}
++	cats_wait_count++;
++	V(mutex);
++	P(cats_queue);
++	if (no_cat_eat == true) {
++		no_cat_eat = false;
++		first_cat_eat = true;
++	}
++	else	first_cat_eat = false;
++
++	//first cat control kitchen
++	if (first_cat_eat == true) {
++		P(mutex);
++		if (cats_wait_count > 1) {
++			another_cat_eat = true;
++			V(cats_queue);
++		}
++		V(mutex);
++	}
++	kprintf(">>> %s enters kitchen.\n", cats[catnumber]);
++
++	//all cats in kitchen
++	P(dish_mutex);
++	if (dish1_busy == false) {
++		dish1_busy = true;
++		mydish = 1;
++	}
++	else {
++		assert(dish2_busy == false);
++		dish2_busy = true;
++		mydish = 2;
++	}
++	V(dish_mutex);
++	kprintf("~~~ %s starts eating. [dish %d] [time %d]\n", cats[catnumber], mydish, ++cattime[catnumber]);
++	clocksleep(random() % MAXTIME);
++	kprintf("... %s finish eating. [dish %d] [time %d]\n", cats[catnumber], mydish, cattime[catnumber]);
++
++	//all cats release dishes
++	P(dish_mutex);
++	if (mydish == 1)	dish1_busy = false;
++	else	dish2_busy = false;
++	V(dish_mutex);
++	P(mutex);
++	cats_wait_count--;
++	V(mutex);
++
++	//first cat leaving kitchen
++	if (first_cat_eat == true) {
++		if (another_cat_eat == true)
++			P(done);
++		kprintf("<<< %s leaves kitchen.\n", cats[catnumber]);
++		no_cat_eat = true;
++		//switch to mice if any is waiting
++		P(mutex);
++		if (mice_wait_count > 0)
++			V(mice_queue);
++		else if (cats_wait_count > 0)
++			V(cats_queue);
++		else	all_dishes_available = true;
++		V(mutex);
++	}
++	//non-first cat leaving kitchen
++	else {
++		kprintf("<<< %s leaves kitchen.\n", cats[catnumber]);
++		V(done);
++	}
++	}
++	num_cats_done++;
++	V(finish);
+ }
+         
+ 
+@@ -102,12 +217,95 @@ void
+ mousesem(void * unusedpointer, 
+          unsigned long mousenumber)
+ {
++	int i;
+         /*
+          * Avoid unused variable warnings.
+          */
+-
+         (void) unusedpointer;
+         (void) mousenumber;
++	int mydish;
++	volatile bool first_mouse_eat;
++	volatile bool another_mouse_eat;
++
++	for (i = 0; i < EATTIMES; i++) {
++	
++	first_mouse_eat = false;
++	another_mouse_eat = false;
++
++	//first mouse no cat
++	P(mutex);
++	if (all_dishes_available == true) {
++		all_dishes_available = false;
++		V(mice_queue);
++	}
++	mice_wait_count++;
++	V(mutex);
++	P(mice_queue);
++	if (no_mouse_eat == true) {
++		no_mouse_eat = false;
++		first_mouse_eat = true;
++	}
++	else	first_mouse_eat = false;
++
++	//first mouse control kitchen
++	if (first_mouse_eat == true) {
++		P(mutex);
++		if (mice_wait_count > 1) {
++			another_mouse_eat = true;
++			V(mice_queue);
++		}
++		V(mutex);
++	}
++	kprintf(">>> %s enters kitchen.\n", mice[mousenumber]);
++
++	//all mice in the kitchen
++	P(dish_mutex);
++	if (dish1_busy == false) {
++		dish1_busy = true;
++		mydish = 1;
++	}
++	else {
++		assert(dish2_busy == false);
++		dish2_busy = true;
++		mydish = 2;
++	}
++	V(dish_mutex);
++	kprintf("~~~ %s starts eating. [dish %d] [time %d]\n", mice[mousenumber], mydish, ++mousetime[mousenumber]);
++	clocksleep(random() % MAXTIME);
++	kprintf("... %s finish eating. [dish %d] [time %d]\n", mice[mousenumber], mydish, mousetime[mousenumber]);
++
++	//all mice release dishes
++	P(dish_mutex);
++	if (mydish == 1)	dish1_busy = false;
++	else	dish2_busy = false;
++	V(dish_mutex);
++	P(mutex);
++	mice_wait_count--;
++	V(mutex);
++
++	//first mouse leave kitchen
++	if (first_mouse_eat == true) {
++		if (another_mouse_eat == true)
++			P(done);
++		kprintf("<<< %s leaves kitchen. \n", mice[mousenumber]);
++		no_mouse_eat = true;
++		//switch to cats if any is waiting
++		P(mutex);
++		if (cats_wait_count > 0)
++			V(cats_queue);
++		else if (mice_wait_count > 0) 
++			V(mice_queue);
++		else	all_dishes_available = true;
++		V(mutex);
++	}
++	//non-first mouse leave kitchen
++	else {
++		kprintf("<<< %s leaves kitchen. \n", mice[mousenumber]);
++		V(done);
++	}
++	}
++	num_mice_done++;
++	V(finish);
+ }
+ 
+ 
+@@ -131,19 +329,64 @@ catmousesem(int nargs,
+             char ** args)
+ {
+         int index, error;
+-   
+         /*
+          * Avoid unused variable warnings.
+          */
+-
+         (void) nargs;
+-        (void) args;
+-   
+-        /*
++	(void) args;
++	kprintf("*** Game Start ***\n");
++	//variables initialization
++        all_dishes_available = true;
++        dish1_busy = false;
++        dish2_busy = false;
++	
++	cattime[0] = 0;
++	cattime[1] = 0;
++	cattime[2] = 0;
++	cattime[3] = 0;
++	cattime[4] = 0;
++	cattime[5] = 0;
++	mousetime[0] = 0;
++	mousetime[1] = 0;	
++
++	finish = sem_create("count", 0);
++	if (finish == NULL)
++		panic("finish: out of memory.\n");
++
++	done = sem_create("both_dishes_cat_done_sem", 0);
++        if (done == NULL)
++                panic("catdone: out of memory.\n");
++
++	mutex = sem_create("mutex", 1);
++	if (mutex == NULL)
++		panic("mutex: out of memory.\n");
++
++        dish_mutex = sem_create("dish_mutex", 1);
++	if (dish_mutex == NULL)
++		panic("dish_mutex: out of memory.\n");
++
++	//cats
++        cats_queue = sem_create("cats_waiting_queue", 0);
++	if (cats_queue == NULL)
++		panic("cats_queue: out of memory.\n");
++
++        cats_wait_count = 0;
++        no_cat_eat = true;
++	num_cats_done = 0;
++
++	//mice
++        mice_queue = sem_create("mice_waiting_queue", 0);
++	if (mice_queue == NULL)
++		panic("mice_queue: out of memory.\n");
++
++        mice_wait_count = 0;
++        no_mouse_eat = true;
++	num_mice_done = 0;
++
++	/*
+          * Start NCATS catsem() threads.
+          */
+-
+-        for (index = 0; index < NCATS; index++) {
++	for (index = 0; index < NCATS; index++) {
+            
+                 error = thread_fork("catsem Thread", 
+                                     NULL, 
+@@ -180,15 +423,30 @@ catmousesem(int nargs,
+                 /*
+                  * panic() on error.
+                  */
+-
+                 if (error) {
+-         
+                         panic("mousesem: thread_fork failed: %s\n", 
+                               strerror(error)
+                               );
+                 }
+         }
+ 
++	//wait until cat and mouse threads are done	
++	while (num_cats_done < 6 || num_mice_done < 2)
++	P(finish);
++	
++	kprintf("*** Game over ***\n");
++	
++	//clean up
++	sem_destroy(done);
++	sem_destroy(mutex);
++	sem_destroy(dish_mutex);
++	sem_destroy(cats_queue);
++	sem_destroy(mice_queue);
++	done = NULL;
++	mutex = NULL;
++	dish_mutex = NULL;
++	cats_queue = NULL;
++	mice_queue = NULL;
+         return 0;
+ }
+ 
+diff --git a/kern/asst1/exercises.txt b/kern/asst1/exercises.txt
+new file mode 100644
+index 0000000..8201c87
+--- /dev/null
++++ b/kern/asst1/exercises.txt
+@@ -0,0 +1,9 @@
++1. Avoid starvation:
++    Everytime the cat is leaving the kitchen, it will check if there is any mouse waiting (mice_wait_count) first. If so, it will signal mice_queue and let the mice in. It not, then it will check if there is any cat waiting and let it in.
++    This is same operation when mice leaving the kitchen.
++    So the method to avoid starvation is to switch the turn to another type of animal to enter the kitchen after one type of animal finishes. By this operation, each type of animal will have fair oppotunities to enter the kitchen.
++
++2. Comment on experience:
++    Basic operations on semaphore: declare as a global variable -> initialize(create) and check if sucess at driver function -> some implementations -> destroy and set to NULL at the end.
++    When a semaphore is used as a mutex, everytime a thread wants to do something to a semephore, just wait for the mutex to do it first. And after done the critical section, it releases the mutex. In this way, conflictions between threads can be avoid, because the semaphore is used by multiple threads concurrently.
++    Use for-looop iterations to let the animals eat multiple times to detect more errors or deadlocks. To avoid semaphore used exactly like a queue, which means, the cats or mice enters the kitchen in the same sequence everytime, clocksleep() is set to a longer time to let the hungry sequence more flexible and variable.
+diff --git a/kern/compile/ASST1/catsem.o b/kern/compile/ASST1/catsem.o
+index f607bea..e8016bc 100644
+Binary files a/kern/compile/ASST1/catsem.o and b/kern/compile/ASST1/catsem.o differ
+diff --git a/kern/compile/ASST1/depend.mk b/kern/compile/ASST1/depend.mk
+index 3861979..ac05469 100644
+--- a/kern/compile/ASST1/depend.mk
++++ b/kern/compile/ASST1/depend.mk
+@@ -103,7 +103,8 @@ catlock.o: ../../asst1/catlock.c ../../include/types.h machine/types.h \
+   ../../include/test.h ../../include/thread.h machine/pcb.h
+ catsem.o: ../../asst1/catsem.c ../../include/types.h machine/types.h \
+   ../../include/kern/types.h ../../include/lib.h machine/setjmp.h \
+-  ../../include/test.h ../../include/thread.h machine/pcb.h
++  ../../include/test.h ../../include/thread.h machine/pcb.h \
++  ../../include/synch.h
+ sfs_vnode.o: ../../fs/sfs/sfs_vnode.c ../../include/types.h \
+   machine/types.h ../../include/kern/types.h ../../include/lib.h \
+   machine/setjmp.h ../../include/synch.h ../../include/array.h \
+diff --git a/kern/compile/ASST1/kernel b/kern/compile/ASST1/kernel
+index b173307..3360163 100755
+Binary files a/kern/compile/ASST1/kernel and b/kern/compile/ASST1/kernel differ
+diff --git a/kern/compile/ASST1/vers.c b/kern/compile/ASST1/vers.c
+index d9167fe..4880f58 100644
+--- a/kern/compile/ASST1/vers.c
++++ b/kern/compile/ASST1/vers.c
+@@ -1,3 +1,3 @@
+ /* This file is automatically generated. Edits will be lost.*/
+-const int buildversion = 6;
++const int buildversion = 55;
+ const char buildconfig[] = "ASST1";
+diff --git a/kern/compile/ASST1/vers.o b/kern/compile/ASST1/vers.o
+index 2db5131..65d7755 100644
+Binary files a/kern/compile/ASST1/vers.o and b/kern/compile/ASST1/vers.o differ
+diff --git a/kern/compile/ASST1/version b/kern/compile/ASST1/version
+index 1e8b314..c3f407c 100644
+--- a/kern/compile/ASST1/version
++++ b/kern/compile/ASST1/version
+@@ -1 +1 @@
+-6
++55
+diff --git a/kern/thread/.synch.c.swp b/kern/thread/.synch.c.swp
+new file mode 100644
+index 0000000..f4e9181
+Binary files /dev/null and b/kern/thread/.synch.c.swp differ

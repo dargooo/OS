@@ -1,0 +1,9 @@
+1. Avoid starvation:
+    Everytime the cat is leaving the kitchen, it will check if there is any mouse waiting (mice_wait_count) first. If so, it will signal mice_queue and let the mice in. It not, then it will check if there is any cat waiting and let it in.
+    This is same operation when mice leaving the kitchen.
+    So the method to avoid starvation is to switch the turn to another type of animal to enter the kitchen after one type of animal finishes. By this operation, each type of animal will have fair oppotunities to enter the kitchen.
+
+2. Comment on experience:
+    Basic operations on semaphore: declare as a global variable -> initialize(create) and check if sucess at driver function -> some implementations -> destroy and set to NULL at the end.
+    When a semaphore is used as a mutex, everytime a thread wants to do something to a semephore, just wait for the mutex to do it first. And after done the critical section, it releases the mutex. In this way, conflictions between threads can be avoid, because the semaphore is used by multiple threads concurrently.
+    Use for-looop iterations to let the animals eat multiple times to detect more errors or deadlocks. To avoid semaphore used exactly like a queue, which means, the cats or mice enters the kitchen in the same sequence everytime, clocksleep() is set to a longer time to let the hungry sequence more flexible and variable.
